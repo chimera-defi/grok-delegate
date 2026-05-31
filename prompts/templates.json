@@ -1,0 +1,32 @@
+{
+  "implement-feature": {
+    "description": "Implement a new feature from description",
+    "task_class": "implement",
+    "template": "Implement the following feature: {task}. Follow existing code patterns, add appropriate tests, and ensure all existing tests pass."
+  },
+  "fix-bug": {
+    "description": "Fix a reported bug",
+    "task_class": "debug",
+    "template": "Fix the following bug: {task}. Investigate the root cause, implement a fix, add regression tests, and verify the fix resolves the issue."
+  },
+  "refactor-code": {
+    "description": "Refactor existing code for better structure",
+    "task_class": "refactor",
+    "template": "Refactor the following code: {task}. Improve code structure, readability, and maintainability while preserving functionality."
+  },
+  "add-tests": {
+    "description": "Add tests for existing code",
+    "task_class": "implement",
+    "template": "Add comprehensive tests for: {task}. Cover edge cases, error conditions, and typical usage patterns."
+  },
+  "code-review": {
+    "description": "Review code changes for quality and issues",
+    "task_class": "review",
+    "template": "Review the following code changes: {task}. Check for bugs, security issues, performance problems, and adherence to coding standards."
+  },
+  "architecture-suggestion": {
+    "description": "Suggest architectural improvements",
+    "task_class": "architecture",
+    "template": "Analyze the current architecture and suggest improvements for: {task}. Consider scalability, maintainability, and best practices."
+  }
+}

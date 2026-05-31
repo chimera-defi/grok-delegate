@@ -1,0 +1,16 @@
+[project]
+name = "takopi-command-grok"
+version = "0.1.0"
+description = "Takopi command plugin for grok-delegate"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "takopi>=0.23",
+]
+
+[project.entry-points."takopi.command_backends"]
+grok = "takopi_command_grok:BACKEND"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
