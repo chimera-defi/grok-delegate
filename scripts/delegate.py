@@ -18,6 +18,64 @@ def script_root() -> Path:
     return Path(__file__).resolve().parent
 
 
+def record_telemetry(
+    repo_root: Path,
+    status: str,
+    task_class: str,
+    model_used: str,
+    fallback_used: bool,
+    fallback_reason: str,
+    parent_context_tokens: int,
+    delegate_input_tokens: int,
+    delegate_output_tokens: int,
+    estimated_tokens_saved: int,
+    latency_ms: float,
+    estimated_cost_usd: float,
+    estimated_savings_usd: float,
+    meta: dict,
+) -> None:
+    """Record delegation event to telemetry."""
+    try:
+        telemetry_cmd = [
+            str(script_root() / "grok_delegate_telemetry.py"),
+            "record",
+            "--repo-root",
+            str(repo_root),
+            "--event",
+            "delegate_invocation",
+            "--status",
+            status,
+            "--task-class",
+            task_class,
+            "--model-used",
+            model_used,
+            "--parent-context-tokens",
+            str(parent_context_tokens),
+            "--delegate-input-tokens",
+            str(delegate_input_tokens),
+            "--delegate-output-tokens",
+            str(delegate_output_tokens),
+            "--estimated-tokens-saved",
+            str(estimated_tokens_saved),
+            "--latency-ms",
+            str(latency_ms),
+            "--estimated-cost-usd",
+            str(round(estimated_cost_usd, 6)),
+            "--estimated-savings-usd",
+            str(round(estimated_savings_usd, 6)),
+            "--meta",
+            json.dumps(meta),
+        ]
+
+        if fallback_used:
+            telemetry_cmd += ["--fallback-used", "--fallback-reason", fallback_reason]
+
+        subprocess.run(telemetry_cmd, capture_output=True, text=True, check=False)
+    except Exception:
+        # Telemetry failures should not break delegation
+        pass
+
+
 def skill_root() -> Path:
     return script_root().parent
 
@@ -529,6 +587,46 @@ def main() -> int:
     
     # Classify error
     error_type = classify_error(rc, stderr, schema_valid)
+    
+    # Record telemetry
+    fallback_used = error_type != "unknown" and rc != 0
+    fallback_reason = error_type if fallback_used else ""
+    
+    # Estimate tokens and costs
+    parent_tokens = estimate_tokens(json.dumps(envelope))
+    delegate_input_tokens = estimate_tokens(json.dumps(envelope))
+    delegate_output_tokens = estimate_tokens(stdout) if stdout else 0
+    estimated_tokens_saved = max(0, parent_tokens * 3 - delegate_output_tokens)
+    
+    # Simple cost estimation (Grokk Build pricing approximation)
+    estimated_cost_usd = (delegate_input_tokens + delegate_output_tokens) * 0.000001  # $1 per 1M tokens
+    estimated_savings_usd = estimated_tokens_saved * 0.000001
+    
+    telemetry_meta = {
+        "repo_root": str(repo_root),
+        "skill_root": str(skill_root()),
+        "repo_scale": repo_scale,
+        "timeout": timeout,
+        "error_type": error_type,
+        "schema_valid": schema_valid,
+    }
+    
+    record_telemetry(
+        repo_root=repo_root,
+        status="ok" if rc == 0 and schema_valid else error_type,
+        task_class=args.task_class,
+        model_used="grok-build",
+        fallback_used=fallback_used,
+        fallback_reason=fallback_reason,
+        parent_context_tokens=parent_tokens,
+        delegate_input_tokens=delegate_input_tokens,
+        delegate_output_tokens=delegate_output_tokens,
+        estimated_tokens_saved=estimated_tokens_saved,
+        latency_ms=latency,
+        estimated_cost_usd=estimated_cost_usd,
+        estimated_savings_usd=estimated_savings_usd,
+        meta=telemetry_meta,
+    )
     
     # Handle auth errors with manual resume steps
     if error_type == "auth_error":

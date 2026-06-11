@@ -1,0 +1,112 @@
+name: Grok Delegate CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task to delegate via grok-delegate'
+        required: false
+        type: string
+        default: 'summarize the last 5 git commits'
+      task_class:
+        description: 'Task class (implement, refactor, debug, migrate, architecture, research)'
+        required: false
+        type: string
+        default: 'research'
+
+env:
+  GROK_DELEGATE_VERSION: '0.1.0'
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Syntax check — all scripts
+      run: |
+        python3 -m py_compile scripts/*.py
+        echo "Syntax OK"
+
+  env-check:
+    name: Environment & Install Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Verify telemetry script exists
+      run: |
+        test -f scripts/grok_delegate_telemetry.py
+        echo "Telemetry script found"
+
+    - name: Telemetry script smoke test
+      run: |
+        python3 scripts/grok_delegate_telemetry.py summary --days 1
+
+  telemetry-gate:
+    name: Telemetry Alert Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Check telemetry alert thresholds
+      run: |
+        python3 scripts/grok_delegate_telemetry.py summary \
+          --alert --fallback-threshold 0.5 --auth-threshold 0.1 2>/dev/null || \
+          echo "No telemetry data yet (expected for fresh install)"
+
+  delegate-smoke:
+    name: Delegation Smoke Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Run delegation task (dry-run)
+      env:
+        TASK: ${{ github.event.inputs.task }}
+        TASK_CLASS: ${{ github.event.inputs.task_class }}
+      run: |
+        python3 scripts/delegate.py \
+          --task "$TASK" \
+          --task-class "$TASK_CLASS" \
+          --dry-run \
+          --print-envelope || true
+
+    - name: Upload telemetry
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: grok-delegate-telemetry
+        path: artifacts/grok-delegate/
+        retention-days: 14

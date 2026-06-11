@@ -1,6 +1,6 @@
 {
   "model": "grok-build",
-  "fallback_model": "claude-3.5-sonnet",
+  "fallback_model": "gpt-5.5",
   "base_timeout_seconds": 60,
   "max_timeout_seconds": 300,
   "large_repo_threshold_files": 10000,
