@@ -1,8 +1,14 @@
 ---
 name: grok-delegate
 preamble-tier: 4
-version: 0.1.0
+version: 0.1.1
 description: "Delegate bounded coding tasks to Grok Build model via OpenCode integration with envelope/fallback telemetry."
+triggers:
+  - delegate to Grok
+  - grok-delegate
+  - use Grok for a bounded task
+  - multi-file refactor via Grok
+  - large codebase implementation
 allowed-tools:
   - Bash
   - Read
