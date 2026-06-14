@@ -10,12 +10,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    from repo_scan import iter_workspace_repos, repo_label
-except ModuleNotFoundError:
-    import sys
-    sys.path.append(str(Path(__file__).resolve().parent))
-    from repo_scan import iter_workspace_repos, repo_label
 
 # Pattern matching legitimate grok-delegate wrapper invocations.
 DELEGATE_CMD_RE = re.compile(
@@ -95,15 +89,9 @@ def parse_bypasses_claude(path: Path) -> list[dict[str, Any]]:
 def detect_bypasses(
     workspace_root: Path,
     days: int,
-    repo_filter: Path | None = None,
 ) -> dict[str, Any]:
     cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
     cutoff_ts = cutoff_dt.timestamp()
-
-    if repo_filter is not None:
-        repo_paths = [repo_filter]
-    else:
-        repo_paths = iter_workspace_repos(workspace_root, include_worktrees=True)
 
     claude_sessions_root = Path.home() / ".claude" / "projects"
     session_files = collect_session_files(claude_sessions_root, cutoff_ts) if claude_sessions_root.exists() else []
@@ -152,16 +140,13 @@ def main() -> int:
     parser.add_argument("--watch", action="store_true", help="Continuously watch for bypasses")
     parser.add_argument("--watch-interval", type=int, default=60)
     parser.add_argument("--output", help="Write JSON report to file")
-    parser.add_argument("--repo", help="Limit scan to a single repo path")
     args = parser.parse_args()
-
-    repo_filter = Path(args.repo).resolve() if args.repo else None
 
     if args.watch:
         print("[grok-delegate] Watching for bypass calls (Ctrl+C to stop)...")
         prev = 0
         while True:
-            report = detect_bypasses(Path(args.workspace_root).resolve(), args.days, repo_filter=repo_filter)
+            report = detect_bypasses(Path(args.workspace_root).resolve(), args.days)
             current = report["bypass_count"]
             if current != prev:
                 print(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] bypasses={current} rate={report['bypass_rate_pct']}%")
@@ -174,7 +159,7 @@ def main() -> int:
                 print("\nWatch stopped.")
                 return 0
 
-    report = detect_bypasses(Path(args.workspace_root).resolve(), args.days, repo_filter=repo_filter)
+    report = detect_bypasses(Path(args.workspace_root).resolve(), args.days)
 
     if args.nudge:
         print(nudge_report(report))
