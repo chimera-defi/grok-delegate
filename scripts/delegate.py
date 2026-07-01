@@ -11,6 +11,7 @@ import re
 import os
 import sys
 import threading
+import uuid
 from pathlib import Path
 
 
@@ -41,6 +42,8 @@ def record_telemetry(
             "record",
             "--repo-root",
             str(repo_root),
+            "--event-uuid",
+            uuid.uuid4().hex,
             "--event",
             "delegate_invocation",
             "--status",
@@ -504,7 +507,7 @@ def run_check(config: dict) -> int:
         "checks": checks,
         "config": {
             "model": config.get("model", "grok-build"),
-            "fallback_model": config.get("fallback_model", "claude-3.5-sonnet"),
+            "fallback_model": config.get("fallback_model") or "default",
         },
     }
     print(json.dumps(result, indent=2))
@@ -657,7 +660,11 @@ def main() -> int:
     if rc != 0 or not schema_valid:
         print(f"[grok-delegate] Grok Build failed ({error_type}), falling back to Codex...", file=sys.stderr)
         try:
-            codex_cmd = ["codex", args.task]
+            codex_cmd = ["codex", "exec"]
+            _fb_model = config.get("fallback_model")
+            if _fb_model and str(_fb_model).strip().lower() not in ("default", "spark", "null", "none"):
+                codex_cmd += ["--model", str(_fb_model)]
+            codex_cmd.append(args.task)
             codex_proc = subprocess.run(codex_cmd, capture_output=True, text=True, timeout=timeout * 2)
             print(codex_proc.stdout)
             if codex_proc.stderr:
