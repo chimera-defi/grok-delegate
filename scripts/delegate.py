@@ -14,6 +14,9 @@ import threading
 import uuid
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tokens_saved import resolve_parent_tokens, estimated_tokens_saved as compute_tokens_saved
+
 
 def script_root() -> Path:
     return Path(__file__).resolve().parent
@@ -596,10 +599,10 @@ def main() -> int:
     fallback_reason = error_type if fallback_used else ""
     
     # Estimate tokens and costs
-    parent_tokens = estimate_tokens(json.dumps(envelope))
     delegate_input_tokens = estimate_tokens(json.dumps(envelope))
+    parent_tokens = resolve_parent_tokens(envelope, delegate_input_tokens)
     delegate_output_tokens = estimate_tokens(stdout) if stdout else 0
-    estimated_tokens_saved = max(0, parent_tokens * 3 - delegate_output_tokens)
+    estimated_tokens_saved = compute_tokens_saved(parent_tokens, delegate_output_tokens)
     
     # Simple cost estimation (Grokk Build pricing approximation)
     estimated_cost_usd = (delegate_input_tokens + delegate_output_tokens) * 0.000001  # $1 per 1M tokens

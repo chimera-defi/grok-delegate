@@ -40,6 +40,11 @@ jobs:
         python3 -m py_compile scripts/*.py
         echo "Syntax OK"
 
+    - name: Unit tests
+      run: |
+        python3 -m pip install --quiet pytest
+        python3 -m pytest scripts/tests -q
+
   env-check:
     name: Environment & Install Check
     runs-on: ubuntu-latest
